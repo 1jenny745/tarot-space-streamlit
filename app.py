@@ -335,6 +335,8 @@ def reading_page():
     spread = st.session_state["spread"]
     info = SPREADS[spread]
 
+    st.markdown("## 你的解读")
+
     if not st.session_state["reading"]:
         cards_desc = build_cards_description(st.session_state["drawn_cards"], spread)
         user_prompt = (
@@ -349,17 +351,13 @@ def reading_page():
             {"role": "system", "content": READING_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ]
-        st.markdown("## 你的解读")
         try:
             st.session_state["reading"] = st.write_stream(llm_stream(messages))
         except Exception as e:
             st.error(f"AI 解读服务尚未连接：{e}")
-            st.session_state["reading"] = "__ERROR__"
-        if st.session_state["reading"] == "__ERROR__":
             return
-
-    # 已生成的解读
-    st.markdown(st.session_state["reading"])
+    else:
+        st.markdown(st.session_state["reading"])
 
     # 牌面回顾
     with st.expander("查看本次牌面"):
