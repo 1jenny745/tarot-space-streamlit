@@ -187,3 +187,11 @@ def draw_cards(spread: str):
     random.shuffle(pool)
     drawn = pool[:count]
     return [(c, random.random() < 0.5) for c in drawn]
+
+
+def shuffled_deck():
+    """返回洗好的整副 78 张牌 [(card_tuple, is_reversed), ...]，供用户自行点击选取。"""
+    pool = list(TAROT_CARDS)
+    random.shuffle(pool)
+    return [(c, random.random() < 0.5) for c in pool]
+

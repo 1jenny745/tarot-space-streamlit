@@ -16,7 +16,7 @@ from tarot_data import (
     is_meaningful_question,
     recommend_spread,
     get_spread_reason,
-    draw_cards,
+    shuffled_deck,
 )
 
 st.set_page_config(page_title="塔罗心灵空间", page_icon="🔮", layout="centered")
@@ -183,6 +183,8 @@ def init_state():
         "goal": "",
         "spread": "one_card",
         "drawn_cards": [],
+        "deck": [],
+        "picked": [],
         "reading": "",
         "chat_history": [],
     }
@@ -192,8 +194,10 @@ def init_state():
 
 
 def reset():
-    for k in ["stage", "question", "question_type", "concern", "goal", "spread", "drawn_cards", "reading", "chat_history"]:
-        st.session_state[k] = {"stage": "home"}.get(k, "") if k != "stage" else "home"
+    for k in ["question", "concern", "goal", "drawn_cards", "deck", "picked", "reading", "chat_history"]:
+        st.session_state[k] = [] if k in ("drawn_cards", "deck", "picked", "chat_history") else ""
+    st.session_state["question_type"] = "career"
+    st.session_state["spread"] = "one_card"
     st.session_state["stage"] = "home"
 
 
@@ -240,6 +244,8 @@ def question_page():
         st.session_state["goal"] = goal
         st.session_state["spread"] = recommend_spread(question, concern, goal)
         st.session_state["drawn_cards"] = []
+        st.session_state["deck"] = shuffled_deck()
+        st.session_state["picked"] = []
         st.session_state["reading"] = ""
         st.session_state["chat_history"] = []
         st.session_state["stage"] = "draw"
@@ -249,7 +255,7 @@ def question_page():
 def safety_page():
     st.markdown("## ⚠️ 安全提示")
     st.markdown(st.session_state.get("safety_msg", ""))
-    if st.button("返回重新提问"):
+    if st.button("返回重新提问", type="primary", width="stretch"):
         st.session_state["stage"] = "question"
         st.rerun()
 
@@ -257,19 +263,30 @@ def safety_page():
 def draw_page():
     spread = st.session_state["spread"]
     info = SPREADS[spread]
-    st.markdown(f"## {info['name']} · {info['description']}")
+    need = info["card_count"]
+    positions = info["positions"]
+    deck = st.session_state["deck"]
+    picked = st.session_state["picked"]
+
+    if not deck:
+        st.session_state["deck"] = shuffled_deck()
+        deck = st.session_state["deck"]
+
+    st.markdown(f"## 请选择你的牌 · {info['name']}")
+    st.caption(f"AI 推荐：{info['name']}，共需抽取 {need} 张。请在下方凭直觉点击你想要的牌，牌由你亲手翻开。")
     st.info(get_spread_reason(spread))
 
-    if not st.session_state["drawn_cards"]:
-        st.markdown("深呼吸，凭直觉点击抽牌。牌由你亲手翻开，决策权在你手中。")
-        if st.button(f"抽 {info['card_count']} 张牌 🃏", type="primary", width="stretch"):
-            st.session_state["drawn_cards"] = draw_cards(spread)
-            st.session_state["reading"] = ""
-            st.rerun()
+    remaining = need - len(picked)
+    if remaining > 0:
+        st.markdown(f"还需抽取 **{remaining}** 张")
     else:
-        positions = info["positions"]
-        cols = st.columns(len(st.session_state["drawn_cards"]))
-        for col, (card, is_reversed), pos in zip(cols, st.session_state["drawn_cards"], positions):
+        st.success("已抽满，可以查看解读了")
+
+    # 已抽出的牌（按顺序对应牌阵位置）
+    if picked:
+        cols = st.columns(len(picked))
+        for col, idx, pos in zip(cols, picked, positions):
+            card, is_reversed = deck[idx]
             card_id, name, name_en, suit, up, rev = card
             with col:
                 img_path = os.path.join(IMAGE_DIR, f"{card_id}.png")
@@ -277,9 +294,41 @@ def draw_page():
                     st.image(img_path, width="stretch")
                 st.markdown(f"**{pos[0]}** · {name}")
                 st.caption(f"{'逆位' if is_reversed else '正位'} · {suit}")
-        if st.button("开始解读 →", type="primary", width="stretch"):
-            st.session_state["stage"] = "reading"
+
+    # 78 张背面牌网格
+    st.markdown("#### 牌堆（点击选取）")
+    full = len(picked) >= need
+    ncols = 10
+    cols = st.columns(ncols)
+    for i in range(len(deck)):
+        with cols[i % ncols]:
+            if i in picked:
+                card, is_reversed = deck[i]
+                img_path = os.path.join(IMAGE_DIR, f"{card[0]}.png")
+                if os.path.exists(img_path):
+                    st.image(img_path, width="stretch")
+            else:
+                if st.button("✦", key=f"pick_{i}", disabled=full, width="stretch"):
+                    st.session_state["picked"].append(i)
+                    st.session_state["drawn_cards"] = [deck[j] for j in st.session_state["picked"]]
+                    st.session_state["reading"] = ""
+                    st.rerun()
+
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("重新洗牌", type="primary", width="stretch"):
+            st.session_state["deck"] = shuffled_deck()
+            st.session_state["picked"] = []
+            st.session_state["drawn_cards"] = []
             st.rerun()
+    with c2:
+        if len(picked) >= need:
+            if st.button("查看解读 →", type="primary", width="stretch"):
+                st.session_state["stage"] = "reading"
+                st.rerun()
+        else:
+            st.button("查看解读 →", width="stretch", disabled=True)
 
 
 def reading_page():
@@ -359,15 +408,39 @@ def reading_page():
         with st.chat_message(role):
             st.markdown(m["content"])
 
-    if st.button("开启一次新的探索", type="secondary", width="stretch"):
+    if st.button("开启一次新的探索", type="primary", width="stretch"):
         reset()
         st.rerun()
+
+
+CARD_CSS = """
+<style>
+section.main button[data-testid="stBaseButton-secondary"],
+[data-testid="stMain"] button[data-testid="stBaseButton-secondary"]{
+  aspect-ratio:2/3;width:100%!important;min-height:0!important;
+  background:linear-gradient(135deg,#241b45,#3b2a6b)!important;
+  color:#d9b563!important;border:1px solid #b98b3566!important;
+  border-radius:8px!important;font-size:16px!important;padding:0!important;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+section.main button[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stMain"] button[data-testid="stBaseButton-secondary"]:hover{
+  border-color:#b98b35!important;box-shadow:0 0 12px #b98b3588;
+  transform:scale(1.06);
+}
+section.main button[data-testid="stBaseButton-secondary"]:disabled,
+[data-testid="stMain"] button[data-testid="stBaseButton-secondary"]:disabled{
+  opacity:.35;
+}
+</style>
+"""
 
 
 def main():
     if not require_password():
         return
     init_state()
+    st.markdown(CARD_CSS, unsafe_allow_html=True)
 
     with st.sidebar:
         st.markdown("### 🔮 塔罗心灵空间")
