@@ -260,6 +260,15 @@ def safety_page():
         st.rerun()
 
 
+def is_mobile():
+    try:
+        ua = st.context.headers.get("User-Agent", "")
+    except Exception:
+        ua = ""
+    ua = (ua or "").lower()
+    return any(k in ua for k in ["android", "iphone", "ipad", "mobile", "micromessenger"])
+
+
 def draw_page():
     spread = st.session_state["spread"]
     info = SPREADS[spread]
@@ -273,7 +282,7 @@ def draw_page():
         deck = st.session_state["deck"]
 
     st.markdown(f"## 请选择你的牌 · {info['name']}")
-    st.caption(f"AI 推荐：{info['name']}，共需抽取 {need} 张。请在下方凭直觉点击你想要的牌，牌由你亲手翻开。")
+    st.caption(f"共需抽取 {need} 张。在下方牌堆中凭直觉点击你想要的牌，牌由你亲手翻开。")
     st.info(get_spread_reason(spread))
 
     remaining = need - len(picked)
@@ -282,39 +291,14 @@ def draw_page():
     else:
         st.success("已抽满，可以查看解读了")
 
-    # 已抽出的牌（按顺序对应牌阵位置）
     if picked:
-        cols = st.columns(len(picked))
-        for col, idx, pos in zip(cols, picked, positions):
-            card, is_reversed = deck[idx]
-            card_id, name, name_en, suit, up, rev = card
-            with col:
-                img_path = os.path.join(IMAGE_DIR, f"{card_id}.png")
-                if os.path.exists(img_path):
-                    st.image(img_path, width="stretch")
-                st.markdown(f"**{pos[0]}** · {name}")
-                st.caption(f"{'逆位' if is_reversed else '正位'} · {suit}")
+        summary = "　｜　".join(
+            f"{pos[0]}·{deck[idx][0][1]}（{'逆位' if deck[idx][1] else '正位'}）"
+            for idx, pos in zip(picked, positions)
+        )
+        st.caption("已抽：" + summary)
 
-    # 78 张背面牌网格
-    st.markdown("#### 牌堆（点击选取）")
-    full = len(picked) >= need
-    ncols = 10
-    cols = st.columns(ncols)
-    for i in range(len(deck)):
-        with cols[i % ncols]:
-            if i in picked:
-                card, is_reversed = deck[i]
-                img_path = os.path.join(IMAGE_DIR, f"{card[0]}.png")
-                if os.path.exists(img_path):
-                    st.image(img_path, width="stretch")
-            else:
-                if st.button("✦", key=f"pick_{i}", disabled=full, width="stretch"):
-                    st.session_state["picked"].append(i)
-                    st.session_state["drawn_cards"] = [deck[j] for j in st.session_state["picked"]]
-                    st.session_state["reading"] = ""
-                    st.rerun()
-
-    st.markdown("---")
+    # 操作按钮放在牌堆之前，手机端无需滚过 78 张牌
     c1, c2 = st.columns(2)
     with c1:
         if st.button("重新洗牌", type="primary", width="stretch"):
@@ -323,12 +307,26 @@ def draw_page():
             st.session_state["drawn_cards"] = []
             st.rerun()
     with c2:
-        if len(picked) >= need:
-            if st.button("查看解读 →", type="primary", width="stretch"):
-                st.session_state["stage"] = "reading"
-                st.rerun()
-        else:
-            st.button("查看解读 →", width="stretch", disabled=True)
+        if st.button("查看解读 →", type="primary", width="stretch", disabled=(len(picked) < need)):
+            st.session_state["stage"] = "reading"
+            st.rerun()
+
+    st.markdown("#### 牌堆（点击选取）")
+    full = len(picked) >= need
+    ncols = 5 if is_mobile() else 10
+    cols = st.columns(ncols)
+    for i in range(len(deck)):
+        with cols[i % ncols]:
+            if i in picked:
+                img_path = os.path.join(IMAGE_DIR, f"{deck[i][0][0]}.png")
+                if os.path.exists(img_path):
+                    st.image(img_path, width="stretch")
+            else:
+                if st.button("✦", key=f"pick_{i}", disabled=full, width="stretch"):
+                    st.session_state["picked"].append(i)
+                    st.session_state["drawn_cards"] = [deck[j] for j in st.session_state["picked"]]
+                    st.session_state["reading"] = ""
+                    st.rerun()
 
 
 def reading_page():
