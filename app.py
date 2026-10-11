@@ -226,12 +226,13 @@ def question_page():
     question = st.text_input("你的问题", value=st.session_state["question"], placeholder=sel_type["placeholder"])
 
     concern = st.selectbox("你最在意什么", CONCERNS, index=CONCERNS.index(st.session_state["concern"]) if st.session_state["concern"] in CONCERNS else 0)
+    goal = st.text_area("补充背景（可选）", value=st.session_state["goal"], placeholder="例如：我刚拿到实习 Offer，但担心影响毕业进度")
 
     if st.button("生成牌阵推荐 →", type="primary", width="stretch"):
         if not is_meaningful_question(question):
             st.warning("问题信息不足，请描述一下你在纠结或想梳理的具体事情，例如“我该不该接受这个 offer”。")
             return
-        safety = get_safety_concern(question)
+        safety = get_safety_concern(f"{question} {goal}")
         if safety:
             st.session_state["stage"] = "safety"
             st.session_state["safety_msg"] = get_safety_message(safety)
@@ -240,8 +241,8 @@ def question_page():
         st.session_state["question"] = question
         st.session_state["question_type"] = sel_type["id"]
         st.session_state["concern"] = concern
-        st.session_state["goal"] = ""
-        st.session_state["spread"] = recommend_spread(question, concern, "")
+        st.session_state["goal"] = goal
+        st.session_state["spread"] = recommend_spread(question, concern, goal)
         st.session_state["drawn_cards"] = []
         st.session_state["deck"] = shuffled_deck()
         st.session_state["picked"] = []
@@ -342,6 +343,7 @@ def reading_page():
             f"用户问题：{st.session_state['question']}\n"
             f"话题类型：{st.session_state['question_type']}\n"
             f"用户最在意：{st.session_state['concern']}\n"
+            f"补充背景：{st.session_state['goal'] or '未说明'}\n"
             f"牌阵类型：{info['name']}（{info['description']}）\n\n"
             f"抽到的牌：\n{cards_desc}\n\n请为用户解读这次塔罗占卜。"
         )
@@ -383,7 +385,7 @@ def reading_page():
                 cards_desc = build_cards_description(st.session_state["drawn_cards"], spread)
                 context_prompt = (
                     f"这是之前的塔罗占卜信息：\n问题：{st.session_state['question']}\n"
-                    f"用户最在意：{st.session_state['concern']}\n"
+                    f"用户最在意：{st.session_state['concern']}\n补充背景：{st.session_state['goal'] or '未说明'}\n"
                     f"牌阵：{info['name']}\n抽到的牌：\n{cards_desc}"
                 )
                 messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}, {"role": "user", "content": context_prompt}]
