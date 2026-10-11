@@ -156,7 +156,7 @@ def get_safety_concern(text: str):
 def is_meaningful_question(text: str) -> bool:
     t = (text or "").strip()
     has_intent = re.search(r"是否|要不要|该不该|应该|应不应该|怎么办|如何|怎么|能不能|会不会|为什么|担心|选择|有没|关系|未来|发展", t)
-    return len(t) >= 8 and bool(re.search(r"[\u4e00-\u9fffA-Za-z]", t)) and not re.fullmatch(r"\d+", t) and bool(has_intent)
+    return bool(re.search(r"[\u4e00-\u9fffA-Za-z]", t)) and not re.fullmatch(r"\d+", t) and bool(has_intent)
 
 
 def get_safety_message(concern: str) -> str:
