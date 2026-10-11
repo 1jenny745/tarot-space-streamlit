@@ -428,6 +428,20 @@ section.main button[data-testid="stBaseButton-secondary"]:disabled,
 [data-testid="stMain"] button[data-testid="stBaseButton-secondary"]:disabled{
   opacity:.35;
 }
+/* 手机端 */
+@media (max-width: 768px){
+  /* 阻止 Streamlit 把列竖排堆叠，保证牌堆是多列网格 */
+  [data-testid="stHorizontalBlock"]{ flex-wrap:nowrap !important; gap:6px !important; }
+  [data-testid="column"],[data-testid="stColumn"]{ flex:1 1 0 !important; min-width:0 !important; width:auto !important; }
+  /* 精简顶部工具栏 */
+  [data-testid="stToolbar"]{ display:none !important; }
+  #MainMenu{ visibility:hidden !important; }
+  [data-testid="stAppViewBlockContainer"],
+  [data-testid="stMainBlockContainer"]{ padding-top:1rem !important; padding-left:.75rem !important; padding-right:.75rem !important; }
+  section.main button[data-testid="stBaseButton-secondary"],
+  [data-testid="stMain"] button[data-testid="stBaseButton-secondary"]{ font-size:12px !important; border-radius:6px !important; }
+  h1{ font-size:24px !important; } h2{ font-size:20px !important; }
+}
 </style>
 """
 
