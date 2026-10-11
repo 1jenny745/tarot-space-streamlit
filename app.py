@@ -230,7 +230,7 @@ def question_page():
 
     if st.button("生成牌阵推荐 →", type="primary", width="stretch"):
         if not is_meaningful_question(question):
-            st.warning("问题信息不足，请描述一下你在纠结或想梳理的具体事情，例如“我该不该接受这个 offer”。")
+            st.warning("请先输入你的问题。")
             return
         safety = get_safety_concern(f"{question} {goal}")
         if safety:
